@@ -3,10 +3,25 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# Load model
-model = tf.keras.models.load_model("best_mobilenetv2.keras")
+# -----------------------------------
+# Load Model
+# -----------------------------------
+@st.cache_resource
+def load_model():
 
-# Class labels
+    model = tf.keras.models.load_model(
+        "meta_learner_nn_best.keras",
+        compile=False,
+        safe_mode=False
+    )
+
+    return model
+
+model = load_model()
+
+# -----------------------------------
+# Class Labels
+# -----------------------------------
 class_names = [
     "Abnormal Heartbeat",
     "Covid-19",
@@ -15,25 +30,55 @@ class_names = [
     "Normal"
 ]
 
-st.title("ECG Classification")
+# -----------------------------------
+# Streamlit UI
+# -----------------------------------
+st.title("ECG Image Classification")
 
-uploaded_file = st.file_uploader("Upload ECG Image", type=["jpg", "png", "jpeg"])
+st.write("Upload an ECG image for prediction")
 
+uploaded_file = st.file_uploader(
+    "Choose an ECG image",
+    type=["jpg", "jpeg", "png"]
+)
+
+# -----------------------------------
+# Prediction
+# -----------------------------------
 if uploaded_file is not None:
 
+    # Open image
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded ECG", use_container_width=True)
 
-    # Preprocess
-    img = image.resize((128, 128))
-    img_array = np.array(img) / 255.0
+    # Show image
+    st.image(image, caption="Uploaded ECG Image", use_container_width=True)
+
+    # Resize image
+    img = image.resize((224, 224))
+
+    # Convert to numpy
+    img_array = np.array(img)
+
+    # Normalize
+    img_array = img_array / 255.0
+
+    # Expand dimensions
     img_array = np.expand_dims(img_array, axis=0)
 
     # Prediction
     prediction = model.predict(img_array)
 
     predicted_class = np.argmax(prediction)
-    confidence = prediction[0][predicted_class]
 
+    confidence = float(prediction[0][predicted_class])
+
+    # Show result
     st.success(f"Prediction: {class_names[predicted_class]}")
-    st.write(f"Confidence: {confidence:.2f}")
+
+    st.info(f"Confidence: {confidence:.4f}")
+
+    # Show probabilities
+    st.subheader("Class Probabilities")
+
+    for i, prob in enumerate(prediction[0]):
+        st.write(f"{class_names[i]} : {prob:.4f}")
